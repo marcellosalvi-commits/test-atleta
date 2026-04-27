@@ -6,66 +6,71 @@ from datetime import datetime
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="Valutazione Atleta", page_icon="⚽", layout="centered")
 
-# --- CONNESSIONE A GOOGLE SHEETS ---
+# --- CONNESSIONE ---
 URL_FOGLIO = "https://docs.google.com/spreadsheets/d/1iNO4MNQCXHo9hBzOcBPzKR3xu1kt_E_w1eyQYQiqngw/edit#gid=0"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- STILE CSS AGGRESSIVO PER MOBILE (NO SCROLL) ---
+# --- STILE CSS (ONE-PAGE & VERTICAL RESPONSIVE) ---
 st.markdown("""
     <style>
-    /* Nasconde menu inutili per risparmiare spazio */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* Rimuove spazi inutili in alto */
+    .block-container { padding-top: 1rem; }
     
-    /* Testo domanda più compatto */
     .domanda-testo {
-        font-size: 20px !important;
+        font-size: 24px;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 15px;
-    }
-    
-    /* Forza il contenitore orizzontale a non andare a capo e non scrollare */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        justify-content: center !important;
-        gap: 2px !important;
+        margin-bottom: 25px;
+        color: #1e293b;
     }
 
-    /* Forza le colonne a dividersi lo spazio equamente */
-    div[data-testid="column"] {
-        width: 19% !important;
-        flex: 1 1 0% !important;
-        min-width: 0px !important;
+    /* Contenitore verticale per le opzioni */
+    .opzione-verticale {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 15px;
+        border: 1px solid #e2e8f0;
+        transition: transform 0.2s;
     }
 
-    /* Stile del bollino colorato più piccolo (45px) per mobile */
-    .bollino-fisico {
+    /* Il bollino colorato tondo */
+    .bollino {
         border-radius: 50%;
-        width: 45px;
-        height: 45px;
+        width: 50px;
+        height: 50px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
-        margin: 0 auto;
-        border: 2px solid white;
-        box-shadow: 0px 2px 4px rgba(0,0,0,0.2);
+        font-size: 28px;
+        margin-right: 20px;
+        flex-shrink: 0;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
     }
 
-    /* Rende il bottone di Streamlit invisibile e sovrapposto al bollino */
-    div[data-testid="column"] button {
-        background: transparent !important;
+    /* Testo descrittivo accanto al bollino */
+    .testo-opzione {
+        font-size: 20px;
+        font-weight: 600;
+    }
+
+    /* Nascondiamo il tasto reale di Streamlit e lo espandiamo sopra l'intera riga */
+    div.stButton > button {
+        width: 100% !important;
+        height: 70px !important;
+        background-color: transparent !important;
         color: transparent !important;
         border: none !important;
-        height: 45px !important;
-        width: 45px !important;
         position: absolute;
         z-index: 10;
-        margin-top: -45px; /* Lo sposta sopra il bollino */
+        margin-top: -70px;
+    }
+    
+    div.stButton {
+        height: 70px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -76,20 +81,26 @@ domande = [
     "Come ti sei relazionato con i compagni?",
     "Come hai gestito il tuo sguardo oggi?",
     "Come ti sei relazionato con lo staff?",
-    "Penti di aver avuto un atteggiamento propositivo?"
+    "Pensi di aver avuto un atteggiamento propositivo?"
 ]
-colori = ["#FF4B4B", "#FFA500", "#FFD700", "#9ACD32", "#4CAF50"]
-faccine = ["😠", "🙁", "😐", "🙂", "😁"]
+opzioni = [
+    {"label": "Molto male", "emoji": "😠", "colore": "#FF4B4B"},
+    {"label": "Male", "emoji": "🙁", "colore": "#FFA500"},
+    {"label": "Neutro", "emoji": "😐", "colore": "#FFD700"},
+    {"label": "Bene", "emoji": "🙂", "colore": "#9ACD32"},
+    {"label": "Ottimo", "emoji": "😁", "colore": "#4CAF50"}
+]
 
 if 'step' not in st.session_state: st.session_state.step = 0
 if 'risposte' not in st.session_state: st.session_state.risposte = {}
 if 'nome_atleta' not in st.session_state: st.session_state.nome_atleta = ""
 
-# --- LOGICA ---
 st.title("⚽ Report Sessione")
 
+# --- LOGICA ONE-PAGE ---
+
 if st.session_state.step == 0:
-    st.session_state.nome_atleta = st.text_input("Nome e Cognome", placeholder="Mario Rossi")
+    st.session_state.nome_atleta = st.text_input("Nome e Cognome", placeholder="Es: Mario Rossi")
     if st.button("INIZIA TEST", type="primary", use_container_width=True):
         if st.session_state.nome_atleta.strip():
             st.session_state.step = 1
@@ -97,27 +108,31 @@ if st.session_state.step == 0:
 
 elif 1 <= st.session_state.step <= len(domande):
     idx = st.session_state.step - 1
-    st.write(f"Domanda {st.session_state.step} / {len(domande)}")
+    st.write(f"Domanda {st.session_state.step} di {len(domande)}")
     st.markdown(f"<p class='domanda-testo'>{domande[idx]}</p>", unsafe_allow_html=True)
     
-    cols = st.columns(5)
-    for i in range(5):
-        with cols[i]:
-            # Disegno il bollino
-            st.markdown(f'<div class="bollino-fisico" style="background-color: {colori[i]};">{faccine[i]}</div>', unsafe_allow_html=True)
-            # Bottone invisibile sopra per catturare il click
-            if st.button(f"_{i}", key=f"b_{idx}_{i}"):
-                st.session_state.risposte[f"q{idx}"] = i + 1
-                st.session_state.step += 1
-                st.rerun()
+    # GENERAZIONE OPZIONI IN VERTICALE (NO COLONNE = NO SCROLL)
+    for i, op in enumerate(opzioni):
+        st.markdown(f"""
+            <div class="opzione-verticale">
+                <div class="bollino" style="background-color: {op['colore']};">{op['emoji']}</div>
+                <div class="testo-opzione">{op['label']}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Tasto trasparente sopra la riga
+        if st.button(f"Scegli {op['label']}", key=f"btn_{idx}_{i}"):
+            st.session_state.risposte[f"q{idx}"] = i + 1
+            st.session_state.step += 1
+            st.rerun()
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
     if st.button("⬅️ Indietro", use_container_width=True):
         st.session_state.step -= 1
         st.rerun()
 
 elif st.session_state.step > len(domande):
-    st.success(f"Grazie {st.session_state.nome_atleta}!")
+    st.success(f"✅ Grazie {st.session_state.nome_atleta}!")
     
     if 'salvato' not in st.session_state:
         try:
@@ -138,9 +153,9 @@ elif st.session_state.step > len(domande):
             st.session_state.salvato = True
             st.balloons()
         except Exception as e:
-            st.error(f"Errore: {e}")
+            st.error(f"Errore di salvataggio: {e}")
 
-    if st.button("Nuovo Inserimento", use_container_width=True):
+    if st.button("Invia un altro report", use_container_width=True):
         st.session_state.step = 0
         st.session_state.risposte = {}
         if 'salvato' in st.session_state: del st.session_state.salvato
