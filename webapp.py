@@ -10,10 +10,9 @@ st.set_page_config(page_title="Valutazione Atleta", page_icon="⚽", layout="cen
 URL_FOGLIO = "https://docs.google.com/spreadsheets/d/1iNO4MNQCXHo9hBzOcBPzKR3xu1kt_E_w1eyQYQiqngw/edit#gid=0"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- STILE CSS (ONE-PAGE & VERTICAL RESPONSIVE) ---
+# --- STILE CSS (MOBILE VERTICALE) ---
 st.markdown("""
     <style>
-    /* Rimuove spazi inutili in alto */
     .block-container { padding-top: 1rem; }
     
     .domanda-testo {
@@ -24,20 +23,17 @@ st.markdown("""
         color: #1e293b;
     }
 
-    /* Contenitore verticale per le opzioni */
     .opzione-verticale {
         display: flex;
         align-items: center;
-        justify-content: flex-start;
         width: 100%;
         padding: 10px;
         margin-bottom: 10px;
         border-radius: 15px;
         border: 1px solid #e2e8f0;
-        transition: transform 0.2s;
+        background-color: #f8fafc;
     }
 
-    /* Il bollino colorato tondo */
     .bollino {
         border-radius: 50%;
         width: 50px;
@@ -51,14 +47,14 @@ st.markdown("""
         box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
     }
 
-    /* Testo descrittivo accanto al bollino */
     .testo-opzione {
         font-size: 20px;
         font-weight: 600;
+        color: #1e293b;
     }
 
-    /* Nascondiamo il tasto reale di Streamlit e lo espandiamo sopra l'intera riga */
-    div.stButton > button {
+    /* Tasto trasparente per le opzioni delle domande */
+    .stButton > button[key^="btn_"] {
         width: 100% !important;
         height: 70px !important;
         background-color: transparent !important;
@@ -68,9 +64,10 @@ st.markdown("""
         z-index: 10;
         margin-top: -70px;
     }
-    
-    div.stButton {
-        height: 70px;
+
+    /* Stile per i tasti normali (Inizia, Indietro) */
+    .stButton > button {
+        border-radius: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -97,21 +94,23 @@ if 'nome_atleta' not in st.session_state: st.session_state.nome_atleta = ""
 
 st.title("⚽ Report Sessione")
 
-# --- LOGICA ONE-PAGE ---
-
+# --- STEP 0: SCHERMATA INIZIALE ---
 if st.session_state.step == 0:
     st.session_state.nome_atleta = st.text_input("Nome e Cognome", placeholder="Es: Mario Rossi")
+    # IL TASTO START ORA È QUI
     if st.button("INIZIA TEST", type="primary", use_container_width=True):
         if st.session_state.nome_atleta.strip():
             st.session_state.step = 1
             st.rerun()
+        else:
+            st.error("Inserisci il tuo nome per iniziare")
 
+# --- STEP 1-5: DOMANDE ---
 elif 1 <= st.session_state.step <= len(domande):
     idx = st.session_state.step - 1
     st.write(f"Domanda {st.session_state.step} di {len(domande)}")
     st.markdown(f"<p class='domanda-testo'>{domande[idx]}</p>", unsafe_allow_html=True)
     
-    # GENERAZIONE OPZIONI IN VERTICALE (NO COLONNE = NO SCROLL)
     for i, op in enumerate(opzioni):
         st.markdown(f"""
             <div class="opzione-verticale">
@@ -120,7 +119,6 @@ elif 1 <= st.session_state.step <= len(domande):
             </div>
         """, unsafe_allow_html=True)
         
-        # Tasto trasparente sopra la riga
         if st.button(f"Scegli {op['label']}", key=f"btn_{idx}_{i}"):
             st.session_state.risposte[f"q{idx}"] = i + 1
             st.session_state.step += 1
@@ -131,6 +129,7 @@ elif 1 <= st.session_state.step <= len(domande):
         st.session_state.step -= 1
         st.rerun()
 
+# --- STEP FINALE: SALVATAGGIO ---
 elif st.session_state.step > len(domande):
     st.success(f"✅ Grazie {st.session_state.nome_atleta}!")
     
